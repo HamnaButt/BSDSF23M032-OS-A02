@@ -131,3 +131,27 @@ Example to set text to **green**: `"\033[0;32m"`
 **Notes**
 - We used `lstat()` while reading entries so that symlinks are detected (S_ISLNK) and colorized correctly.
 - For alignment we print the colored name then pad plain spaces equal to the column width minus the visible name length; since ANSI sequences don't contribute to visible length this keeps columns aligned.
+
+## Feature 7: Recursive Listing (-R)
+
+### 1️⃣ase Case in Recursion
+
+In recursion, the **base case** is the condition that stops further recursive calls to prevent infinite loops.  
+In the context of our recursive `ls` implementation, the base case occurs when:
+
+- A directory has **no subdirectories** left to process, or  
+- The `opendir()` function fails (for example, due to permission errors or because the path is not a directory).
+
+At that point, the recursion stops naturally, ensuring that the program doesn’t infinitely call itself.
+
+---
+
+### 2️⃣hy It Is Necessary to Build Full Paths
+
+It is essential to construct a **full path** (for example, `"parent_dir/subdir"`) before making a recursive call, because the process’s **current working directory does not automatically change** during recursion.
+
+If we simply called:
+
+```c
+do_ls("subdir");
+
