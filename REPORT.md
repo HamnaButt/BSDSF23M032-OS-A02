@@ -92,3 +92,24 @@ If only a fixed-width fallback like 80 columns were used:
 
 Using `ioctl` ensures the layout adapts to the actual terminal size, giving correct and consistent results.
 
+
+# Feature 5 – Alphabetical Sort (v1.4.0)
+
+**Q1: Why read all entries into memory before sorting? Drawbacks for millions of files**
+- Sorting requires comparing arbitrary elements multiple times; to compare any two entries efficiently you must have random access to them. Reading all entries into a memory array provides O(1) access to any element during comparisons.
+- Drawbacks for very large directories:
+  - **High memory usage**: storing millions of filenames uses a lot of RAM (O(N * avg_filename_length)). This can cause swapping or OOM failures.
+  - **Time & I/O**: reading and allocating that many strings is slow; sorting is O(N log N) time and may be CPU-heavy.
+  - **Alternatives**: external sort (store on-disk and sort in chunks), stream-based partial results, or limit sorting to a window (e.g., top K). For practical systems, tools sometimes use on-disk temporary files or database indexes for extremely large directories.
+
+**Q2: Purpose and signature of the comparison function for `qsort()`**
+- `qsort()` is generic: it sorts an array of `nmemb` elements, each of `size` bytes. It needs a comparator to know how to order elements.
+- Signature: `int cmp(const void *a, const void *b)`. The comparator:
+  - Receives pointers to array elements as `const void *`.
+  - Must cast those to the specific element type pointer inside the function (for strings: `const char * const *`).
+  - Returns a negative integer if `a < b`, zero if `a == b`, positive if `a > b`.
+- Example used: `cmp_strptr()` casts inputs to `const char *const *` and returns `strcmp(*pa, *pb)`. This makes `qsort()` arrange strings in ascending alphabetical order.
+
+**Notes**
+- The comparator uses `strcmp()` (case-sensitive). Use `strcasecmp()` for case-insensitive ordering if required.
+- Hidden files (names starting with `.`) are still skipped by default; if `-a` is implemented later, the sorting logic will work unchanged (it will include those entries too).
