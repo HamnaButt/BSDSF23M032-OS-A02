@@ -95,14 +95,14 @@ Using `ioctl` ensures the layout adapts to the actual terminal size, giving corr
 
 # Feature 5 – Alphabetical Sort (v1.4.0)
 
-**Q1: Why read all entries into memory before sorting? Drawbacks for millions of files**
+### Q1: Why read all entries into memory before sorting? Drawbacks for millions of files**
 - Sorting requires comparing arbitrary elements multiple times; to compare any two entries efficiently you must have random access to them. Reading all entries into a memory array provides O(1) access to any element during comparisons.
 - Drawbacks for very large directories:
   - **High memory usage**: storing millions of filenames uses a lot of RAM (O(N * avg_filename_length)). This can cause swapping or OOM failures.
   - **Time & I/O**: reading and allocating that many strings is slow; sorting is O(N log N) time and may be CPU-heavy.
   - **Alternatives**: external sort (store on-disk and sort in chunks), stream-based partial results, or limit sorting to a window (e.g., top K). For practical systems, tools sometimes use on-disk temporary files or database indexes for extremely large directories.
 
-**Q2: Purpose and signature of the comparison function for `qsort()`**
+### Q2: Purpose and signature of the comparison function for `qsort()`**
 - `qsort()` is generic: it sorts an array of `nmemb` elements, each of `size` bytes. It needs a comparator to know how to order elements.
 - Signature: `int cmp(const void *a, const void *b)`. The comparator:
   - Receives pointers to array elements as `const void *`.
@@ -113,3 +113,21 @@ Using `ioctl` ensures the layout adapts to the actual terminal size, giving corr
 **Notes**
 - The comparator uses `strcmp()` (case-sensitive). Use `strcasecmp()` for case-insensitive ordering if required.
 - Hidden files (names starting with `.`) are still skipped by default; if `-a` is implemented later, the sorting logic will work unchanged (it will include those entries too).
+
+# Feature 6 – Colorized Output (v1.5.0)
+
+### Q1: How do ANSI escape codes work?**
+ANSI color sequences are special byte sequences printed to the terminal that tell the terminal to change text attributes. They begin with the ESC character (`\033` or hex `0x1B`) followed by `[` and a list of numeric parameters and an `m`.  
+Example to set text to **green**: `"\033[0;32m"`  
+- `\033` = ESC, `[` begins control sequence, `0` resets attributes, `;32` sets foreground to green, `m` ends the SGR (Select Graphic Rendition) sequence. After printing colored text you must reset color with `"\033[0m"` to return to defaults.
+
+### Q2: Which st_mode bits indicate executability?**
+- The `st_mode` field contains permission bits. To check if a file is executable by owner, group, or others check:
+  - `S_IXUSR` — owner execute bit
+  - `S_IXGRP` — group execute bit
+  - `S_IXOTH` — others execute bit
+- In code we test `(st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))` — if any of these are set, the file is considered executable and we print it in green.
+
+**Notes**
+- We used `lstat()` while reading entries so that symlinks are detected (S_ISLNK) and colorized correctly.
+- For alignment we print the colored name then pad plain spaces equal to the column width minus the visible name length; since ANSI sequences don't contribute to visible length this keeps columns aligned.
